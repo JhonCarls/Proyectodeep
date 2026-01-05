@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI ANPR Security System</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --text-main: #e2e8f0;
+            --accent: #3b82f6;
+            --success: #22c55e;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        header {
+            background-color: var(--card-bg);
+            padding: 1rem 2rem;
+            border-bottom: 1px solid #334155;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        h1 { margin: 0; font-size: 1.5rem; color: var(--accent); text-transform: uppercase; letter-spacing: 2px; }
+        
+        .container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+            flex-wrap: wrap;
+        }
+        
+        /* Panel Izquierdo: Video */
+        .video-panel {
+            flex: 3;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            min-width: 300px;
+        }
+        .video-container {
+            background: #000;
+            border-radius: 12px;
+            overflow: hidden;
+            position: relative;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        img#videoStream {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+            background: var(--card-bg);
+            padding: 15px;
+            border-radius: 8px;
+        }
+        input, select, button {
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid #475569;
+            background: #0f172a;
+            color: white;
+        }
+        button {
+            background: var(--accent);
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        button:hover { background: #2563eb; }
+
+        /* Panel Derecho: Lista de Placas */
+        .list-panel {
+            flex: 1;
+            background-color: var(--card-bg);
+            border-left: 1px solid #334155;
+            padding: 20px;
+            overflow-y: auto;
+            min-width: 300px;
+        }
+        .panel-title {
+            font-size: 1.2rem;
+            margin-bottom: 15px;
+            border-bottom: 2px solid var(--accent);
+            padding-bottom: 5px;
+        }
+        
+        .plate-card {
+            background: #334155;
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 15px;
+            display: flex;
+            gap: 10px;
+            transition: transform 0.2s;
+            border-left: 4px solid var(--success);
+        }
+        .plate-card:hover { transform: translateY(-2px); }
+        .car-thumb {
+            width: 80px;
+            height: 80px;
+            object-fit: cover;
+            border-radius: 4px;
+            background: #000;
+        }
+        .plate-info {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        .plate-number {
+            font-size: 1.4rem;
+            font-weight: bold;
+            color: #fff;
+            background: #000;
+            padding: 2px 8px;
+            border-radius: 4px;
+            border: 1px solid #fff;
+            display: inline-block;
+            margin-bottom: 5px;
+            font-family: monospace;
+        }
+        .timestamp { font-size: 0.8rem; color: #94a3b8; }
+
+        /* Responsivo */
+        @media (max-width: 768px) {
+            .container { flex-direction: column; }
+            .list-panel { height: 300px; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>ANPR Security Core</h1>
+        <div>Estado: <span style="color:var(--success)">Activo</span></div>
+    </header>
+
+    <div class="container">
+        <div class="video-panel">
+            <div class="video-container">
+                <img id="videoStream" src="{{ url_for('video_feed') }}" alt="Esperando señal de video...">
+            </div>
+            
+            <div class="controls">
+                <select id="sourceType">
+                    <option value="cam">Cámara Dispositivo</option>
+                    <option value="video">Video Archivo</option>
+                    <option value="ip">Cámara IP</option>
+                </select>
+                <input type="text" id="sourceInput" placeholder="Ruta video o IP (vacío para webcam)" style="flex:1;">
+                <button onclick="changeSource()">Cambiar Fuente</button>
+            </div>
+        </div>
+
+        <div class="list-panel">
+            <div class="panel-title">Detecciones Recientes</div>
+            <div id="platesList">
+                </div>
+        </div>
+    </div>
+
+    <script>
+        function changeSource() {
+            const type = document.getElementById('sourceType').value;
+            let input = document.getElementById('sourceInput').value;
+            
+            let finalSource = "0"; // Default webcam
+            
+            if (type === 'video' || type === 'ip') {
+                finalSource = input;
+            } else {
+                finalSource = "0";
+            }
+
+            fetch('/update_config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ source: finalSource })
+            }).then(response => response.json())
+              .then(data => {
+                  alert("Fuente actualizada. Recargando stream...");
+                  // Truco para recargar la imagen del video
+                  const img = document.getElementById('videoStream');
+                  img.src = "{{ url_for('video_feed') }}?t=" + new Date().getTime();
+              });
+        }
+
+        // Función para actualizar la lista automáticamente
+        function updatePlates() {
+            fetch('/get_data')
+                .then(response => response.json())
+                .then(data => {
+                    const listContainer = document.getElementById('platesList');
+                    listContainer.innerHTML = ''; // Limpiar lista
+                    
+                    data.forEach(item => {
+                        const card = `
+                            <div class="plate-card">
+                                <img src="${item.image}" class="car-thumb" onclick="window.open(this.src, '_blank')">
+                                <div class="plate-info">
+                                    <div class="plate-number">${item.plate}</div>
+                                    <div class="timestamp">Hora: ${item.time}</div>
+                                    <div class="timestamp">Vehículo Validado</div>
+                                </div>
+                            </div>
+                        `;
+                        listContainer.innerHTML += card;
+                    });
+                });
+        }
+
+        // Actualizar cada 2 segundos
+        setInterval(updatePlates, 2000);
+    </script>
+</body>
+</html>
